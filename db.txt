@@ -1,0 +1,3 @@
+code in rust	false
+make coffee	true
+visit dubai	true
