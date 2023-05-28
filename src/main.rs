@@ -1,5 +1,4 @@
-use std::{collections::HashMap, io::Read};
-use std::str::FromStr;
+use std::{collections::HashMap};
 
 fn main(){
     let action = std::env::args().nth(1).expect("Please specify an action");
@@ -32,43 +31,35 @@ struct Todo {
 
 impl Todo {
     fn new() -> Result<Todo, std::io::Error> {
-        // open the db file
-        let mut f = std::fs::OpenOptions::new()
+        // open db.json
+        let f = std::fs::OpenOptions::new()
             .write(true)
             .create(true)
             .read(true)
-            .open("db.txt")?;
-        // read its content into a new string   
-        let mut content = String::new();
-        f.read_to_string(&mut content)?;
-        
-        // allocate an empty HashMap
-        let mut map = HashMap::new();
-        
-        // loop over each lines of the file
-        for entries in content.lines() {
-            // split and bind values
-            let mut values = entries.split('\t');
-            let key = values.next().expect("No Key");
-            let val = values.next().expect("No Value");
-            // insert them into HashMap
-            map.insert(String::from(key), bool::from_str(val).unwrap());
+            .open("db.json")?;
+        // serialize json as HashMap
+        match serde_json::from_reader(f) {
+            Ok(map) => Ok(Todo { map }),
+            Err(e) if e.is_eof() => Ok(Todo {
+                map: HashMap::new(),
+            }),
+            Err(e) => panic!("An error occurred: {}", e),
         }
-        // Return Ok
-        Ok(Todo { map })
     }
 
     fn insert(&mut self, key: String){
         self.map.insert(key, true);
     }
 
-    fn save(self) -> Result<(), std::io::Error> {
-        let mut content = String::new();
-        for (k, v) in self.map {
-            let record = format!("{}\t{}\n", k, v);
-            content.push_str(&record);
-        }
-        std::fs::write("db.txt", content)
+    fn save(self) -> Result<(), Box<dyn std::error::Error>> {
+        // open db.json
+        let f = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open("db.json")?;
+        // write to file with serde
+        serde_json::to_writer_pretty(f, &self.map)?;
+        Ok(())
     }
 
     fn complete(&mut self, key: &String) -> Option<()>{
